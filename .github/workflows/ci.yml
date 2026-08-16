@@ -1,0 +1,57 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  lint-and-test:
+    name: Lint & Unit Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Lint code with Flake8
+        run: |
+          # Leáll, ha szintaktikai hiba vagy definiálatlan változó van
+          flake8 app tests --count --select=E9,F63,F7,F82 --show-source --statistics
+          # Figyelmeztetések komplexitásra és stílusra
+          flake8 app tests --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+      - name: Run Pytest suite
+        run: |
+          pytest -v
+
+  docker-build:
+    name: Build & Validate Docker Image
+    needs: lint-and-test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          tags: fastapi-devops-sandbox:latest
